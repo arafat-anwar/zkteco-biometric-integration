@@ -1,59 +1,129 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ZKTeco Biometric Integration
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An integration layer for ZKTeco biometric devices that extracts attendance and user data from Microsoft Access (MDB) files and directly from ZKTeco devices, and exposes an API for other systems to consume the data.
 
-## About Laravel
+## What it does
+- Reads attendance and user records from an `att2000.mdb` sample database (Microsoft Access) and from ZKTeco devices over network.
+- Normalizes records and exposes them via a REST API for easy consumption by HR or payroll systems.
+- Supports importing MDB files, polling ZKTeco devices, and running one-off data pulls.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Features
+- MDB file import and parsing (sample `public/att2000.mdb`).
+- Device polling using ZKTeco protocol for live retrieval.
+- REST API with OpenAPI spec: see `public/openapi.json`.
+- Laravel modules structure: modularized features under `Modules/`.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
+- PHP 8.1+ (follow project's composer.json)
+- Composer
+- A running database (MySQL, MariaDB, or SQLite for testing)
+- Optional: Node.js and npm/yarn if running assets build
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Installation
+1. Clone the repository:
 
-## Learning Laravel
+	git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
+	cd zkteco-biometric-integration
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+2. Install PHP dependencies:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+	composer install
 
-## Laravel Sponsors
+3. Copy and configure environment:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+	cp .env.example .env
+	# Update DB and other settings in .env
 
-### Premium Partners
+4. Generate application key and run migrations:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+	php artisan key:generate
+	php artisan migrate
+
+5. (Optional) Install frontend deps and build assets:
+
+	npm install
+	npm run build
+
+6. Start the application (local dev):
+
+	php artisan serve
+
+## Configuration
+- Database connection: set `DB_CONNECTION`, `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` in `.env`.
+- MDB import path: by default the sample MDB is `public/att2000.mdb`. You can place other MDB files anywhere and point the import command to them.
+- ZKTeco devices: configure device IP addresses and ports in the appropriate module config or `.env` (depending on deployment).
+
+## Usage
+
+- Import an MDB file (example artisan command - adjust to your implementation):
+
+  php artisan zkteco:import --file=public/att2000.mdb
+
+- Poll a ZKTeco device (example):
+
+  php artisan zkteco:poll --host=192.168.1.100 --port=4370
+
+- API: Once the app is running, the REST endpoints described in `public/openapi.json` are available (default host `http://localhost:8000`). Use Swagger UI or tools like `curl` / Postman to explore.
+
+## How the MDB format works
+
+The Microsoft Access database (`.mdb`) used by many ZKTeco device export tools (for example the Att2000 sample) typically contains attendance and user tables with columns such as:
+
+- `USERID` / `PIN` — unique user identifier
+- `NAME` — user full name
+- `VERIFYMODE` — verification method
+- `CHECKTIME` / `ATT_TIME` — timestamp of attendance
+- `CHECKTYPE` — in/out or event type
+
+The project includes an importer that:
+- Opens the MDB file using an MDB-to-SQL reader library (or `odbc`/`pdo` depending on environment).
+- Maps table columns to the application's user and attendance models.
+- Normalizes timestamps to UTC (or configured timezone) and deduplicates records.
+
+Sample workflow when importing an MDB file:
+1. Open MDB and enumerate tables.
+2. Read user table to create/update local users.
+3. Read attendance/log table and insert attendance events.
+4. Run post-processing: dedupe, enrich, and index for API reads.
+
+If you need support for different MDB layouts, add a mapping configuration for column names to the importer.
+
+## How ZKTeco devices work (overview)
+
+ZKTeco biometric devices typically support a network protocol (TCP/UDP) to retrieve user and attendance data. There are two common approaches this project supports:
+
+1. Pull from device using device SDK/protocol: connect to device IP and request user list and attendance logs.
+2. Export to MDB (from vendor tools) and import the MDB.
+
+Key notes:
+- Devices often use port `4370` for communication.
+- Authentication may be required depending on device model; configure credentials where applicable.
+- Network reliability: implement retries and incremental reads (track last read index/time) to avoid duplicate fetching.
+
+## API Documentation
+
+An OpenAPI/Swagger specification is included at `public/openapi.json`. To view the API:
+
+- Serve the app (php artisan serve) and open a Swagger UI pointed at `http://localhost:8000/openapi.json` (or load `public/openapi.json` into http://editor.swagger.io/).
+- Example endpoints you can expect (adjust to actual implementation):
+  - `GET /api/users` — list users
+  - `GET /api/attendances` — list attendance events
+  - `POST /api/import/mdb` — upload and import an MDB file
+
+Include authentication (API tokens) where required by the project. Check `Modules/Authentication` for implementation details.
+
+## Development notes
+- Modules are located under `Modules/` (e.g., `Modules/Receiver`, `Modules/Authentication`). Review module `routes/` and `app/` folders for controllers and commands.
+- Sample MDB: `public/att2000.mdb` — useful for local testing.
+- OpenAPI spec: `public/openapi.json` — a single source of truth for API endpoints.
+
+## Troubleshooting
+- MDB import issues: ensure the PHP environment has an MDB-reading library available (e.g., `uodbc`, `mdbtools` on Linux, or use a PHP MDB reader package). On Windows, ODBC drivers can be used.
+- Device connection issues: verify network connectivity and device IP/port, check firewall rules, and confirm device allows remote queries.
 
 ## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- Fork the repo, create a feature branch, add tests, and open a Pull Request against the `release` branch.
 
 ## License
+Specify your project's license here (e.g., MIT).
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
