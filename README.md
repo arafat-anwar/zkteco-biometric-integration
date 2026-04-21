@@ -53,6 +53,26 @@ An integration layer for ZKTeco biometric devices that extracts attendance and u
 - MDB import path: by default the sample MDB is `public/att2000.mdb`. You can place other MDB files anywhere and point the import command to them.
 - ZKTeco devices: configure device IP addresses and ports in the appropriate module config or `.env` (depending on deployment).
 
+## ODBC requirements
+
+To import `.mdb` files the app requires an ODBC driver and PHP's ODBC extension. Install and configure as follows:
+
+- **PHP extension**: enable `php_odbc` (install the platform package or enable `extension=odbc` in `php.ini`) and restart your PHP service (php-fpm, Apache, or the local server).
+- **Ubuntu / Debian**: `sudo apt install unixodbc unixodbc-dev mdbtools`
+- **RHEL / CentOS / Fedora**: `sudo dnf install unixODBC unixODBC-devel mdbtools` (or use `yum` on older systems)
+- **macOS (Homebrew)**: `brew install unixodbc mdbtools`
+- **Windows**: install the Microsoft Access Database Engine Redistributable (choose the installer matching PHP bitness — x86 or x64). Ensure the "Microsoft Access Driver (*.mdb)" ODBC driver is available.
+
+Example DSN-less PDO connection string (Access driver):
+
+`odbc:Driver={Microsoft Access Driver (*.mdb)};Dbq=/full/path/to/att2000.mdb;`
+
+Notes:
+
+- Ensure the PHP process has read access to the `.mdb` file.
+- On Windows, the ODBC driver and PHP must have matching bitness (32-bit vs 64-bit).
+- If you define system DSNs, configure `/etc/odbc.ini` and `/etc/odbcinst.ini` on Linux/macOS, or use the ODBC Data Source Administrator on Windows.
+
 ## Usage
 
 - Import via web UI: No CLI commands are required for normal imports. Open the application in a browser, sign in with an admin or operator account, and navigate to the "Imports" or "Receiver" → "Import" page. Use the UI to upload an MDB file (for example `att2000.mdb`) or pick the sample file from the server. The UI validates the file, starts the import job, and shows progress and results in the import history view.
