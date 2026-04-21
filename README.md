@@ -22,6 +22,198 @@
 
 ---
 
+## Full docs (embedded tabs)
+
+Below are the full documentation pages embedded inline. Click a section to expand it — this lets you read everything from one file while keeping each topic collapsible like a tab.
+
+<small>Tip: use your editor's find (Ctrl/Cmd+F) to jump between headings, or expand the section you want to read.</small>
+
+<details>
+<summary><strong>📘 Overview</strong></summary>
+
+An integration layer for ZKTeco biometric devices that extracts attendance and user data from Microsoft Access (MDB) files and directly from ZKTeco devices, and exposes a clean REST API for HR/payroll systems.
+
+### Highlights
+
+- ✅ MDB import (sample: `public/att2000.mdb`)
+- ✅ Device polling & sync (common port `4370`)
+- ✅ OpenAPI / Swagger spec at `public/openapi.json`
+- ✅ Modular Laravel structure under `Modules/`
+
+</details>
+
+<details>
+<summary><strong>🛠 Installation</strong></summary>
+
+Follow these quick steps to get the project running locally.
+
+```bash
+git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
+cd zkteco-biometric-integration
+composer install
+cp .env.example .env
+# update .env DB settings
+php artisan key:generate
+php artisan migrate
+npm install # optional (assets)
+npm run build
+php artisan serve
+```
+
+</details>
+
+<details>
+<summary><strong>📤 Usage (Imports / Devices / API)</strong></summary>
+
+## Imports (UI)
+
+Open the app in a browser, sign in as an admin/operator and go to **Imports** (or **Receiver → Import**). Use the Upload control to add an MDB file or use the server sample `att2000.mdb`. The UI runs the import job and shows progress and history.
+
+## Devices (UI)
+
+Navigate to **Devices** to add or edit ZKTeco devices (IP, port, name, credentials). Use the **Sync** action to pull logs; the UI shows last-sync and results.
+
+## API
+
+The REST API is described by the OpenAPI spec at `/openapi.json`. Common endpoints:
+
+- `GET /api/users` — list users
+- `GET /api/attendances` — list attendance events
+- `POST /api/import/mdb` — upload and import an MDB (if API import is enabled)
+
+Authentication: include `Authorization: Bearer <TOKEN>` in requests.
+
+Example: list attendances
+
+```bash
+curl -X GET "http://localhost:8000/api/attendances" \
+	-H "Authorization: Bearer <TOKEN>" \
+	-H "Accept: application/json"
+```
+
+Example: upload an MDB
+
+```bash
+curl -X POST "http://localhost:8000/api/import/mdb" \
+	-H "Authorization: Bearer <TOKEN>" \
+	-F "file=@/path/to/att2000.mdb"
+```
+
+</details>
+
+<details>
+<summary><strong>📁 MDB Format</strong></summary>
+
+The included `att2000.mdb` sample contains typical tables used by ZKTeco exports. Key columns you will find:
+
+- `USERID` / `PIN` — unique user identifier
+- `NAME` — user full name
+- `VERIFYMODE` — verification method
+- `CHECKTIME` / `ATT_TIME` — timestamp of attendance
+- `CHECKTYPE` — in/out or event type
+
+Importer behavior:
+
+1. Open MDB and enumerate tables.
+2. Read user table to create/update local users.
+3. Read attendance/log table and insert attendance events.
+4. Post-process: dedupe, normalize timestamps (UTC or configured TZ), and index.
+
+If you must support alternate MDB schemas, add a column mapping in the importer configuration.
+
+</details>
+
+<details>
+<summary><strong>🔌 ZKTeco Devices</strong></summary>
+
+ZKTeco devices typically accept network queries on TCP port `4370`. This project supports:
+
+- Pulling users and logs via device protocol/SDK
+- Export-to-MDB workflow (vendor tools) and subsequent import
+
+Notes:
+
+- Track `last_sync` per device to avoid duplicates.
+- Implement retries and backoff for flaky networks.
+
+</details>
+
+<details>
+<summary><strong>📚 API Documentation</strong></summary>
+
+The OpenAPI spec is at `public/openapi.json`. To view:
+
+- Open `http://localhost:8000/openapi.json` with Swagger UI, or
+- Load `public/openapi.json` at http://editor.swagger.io/.
+
+The spec includes parameter descriptions, response schemas, and auth requirements. Use it to generate clients or a Postman collection.
+
+</details>
+
+<details>
+<summary><strong>🛠 Development Notes</strong></summary>
+
+- Modules are under `Modules/` (e.g., `Modules/Receiver`, `Modules/Authentication`).
+- Inspect `routes/` and `app/` inside each module for controllers and commands.
+- Sample MDB for local testing: `public/att2000.mdb`.
+
+</details>
+
+<details>
+<summary><strong>🩺 Troubleshooting & ODBC</strong></summary>
+
+- MDB import issues: ensure the PHP environment has an MDB-reading library available (e.g., `uodbc`, `mdbtools` on Linux, or use a PHP MDB reader package). On Windows, ODBC drivers can be used. Also ensure the `php_odbc` extension is enabled in your `php.ini` and the web server/PHP-FPM has been restarted.
+- Device connection issues: verify network connectivity and device IP/port, check firewall rules, and confirm device allows remote queries.
+
+### Enabling `php_odbc` (platform-specific)
+
+If MDB import fails, make sure the PHP ODBC extension is installed and the system has an ODBC driver for Access (or `mdbtools` for Linux).
+
+- Debian / Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install php-odbc unixodbc mdbtools
+# If using a specific PHP version (replace 8.1 as needed):
+sudo apt install php8.1-odbc
+sudo systemctl restart apache2    # or php8.1-fpm
+```
+
+- RHEL / CentOS / Fedora:
+
+```bash
+sudo dnf install php-odbc unixODBC mdbtools
+sudo systemctl restart httpd     # or php-fpm
+```
+
+- Windows:
+
+1. Install the Microsoft Access Database Engine (ACE) / Microsoft Access ODBC drivers (Microsoft Access Database Engine Redistributable) so the OS can read `.mdb` files.
+2. Edit your `php.ini` (used by the webserver/PHP) and enable the ODBC extension by adding or uncommenting one of the lines below (exact name varies by PHP build):
+
+```
+extension=odbc
+; or
+extension=php_odbc.dll
+```
+
+3. Restart IIS, Apache or PHP-FPM and verify the extension is loaded:
+
+```bash
+php -m | grep odbc
+php -r "var_dump(extension_loaded('odbc'));"
+```
+
+</details>
+
+<details>
+<summary><strong>🤝 Contributing</strong></summary>
+
+- Fork, add a feature branch, include tests, and open a PR against `release`.
+
+</details>
+
+
 ## <a name="overview"></a>Overview
 
 An integration layer for ZKTeco biometric devices that extracts attendance and user data from Microsoft Access (MDB) files and directly from ZKTeco devices, and exposes a clean REST API for HR/payroll systems.
