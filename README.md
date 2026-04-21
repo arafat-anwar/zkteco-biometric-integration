@@ -1,6 +1,159 @@
 # ZKTeco Biometric Integration
 
-An integration layer for ZKTeco biometric devices that extracts attendance and user data from Microsoft Access (MDB) files and directly from ZKTeco devices, and exposes an API for other systems to consume the data.
+<p align="center">
+	<strong>Modular Laravel integration for ZKTeco devices — MDB import, device sync, and REST API.</strong>
+</p>
+
+<!-- Tab-like quick links -->
+<p align="center">
+	<a href="#overview">Overview</a> •
+	<a href="#installation">Installation</a> •
+	<a href="#usage">Usage</a> •
+	<a href="#mdb-format">MDB Format</a> •
+	<a href="#zkteco-devices">ZKTeco</a> •
+	<a href="#api-documentation">API Docs</a> •
+	<a href="#development">Development</a> •
+	<a href="#contributing">Contributing</a> •
+	<a href="#license">License</a>
+</p>
+
+---
+
+## <a name="overview"></a>Overview
+
+An integration layer for ZKTeco biometric devices that extracts attendance and user data from Microsoft Access (MDB) files and directly from ZKTeco devices, and exposes a clean REST API for HR/payroll systems.
+
+### Highlights
+
+- ✅ MDB import (sample: `public/att2000.mdb`)
+- ✅ Device polling & sync (common port `4370`)
+- ✅ OpenAPI / Swagger spec at `public/openapi.json`
+- ✅ Modular Laravel structure under `Modules/`
+
+---
+
+## <a name="installation"></a>Installation
+
+Follow these quick steps to get the project running locally.
+
+```bash
+git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
+cd zkteco-biometric-integration
+composer install
+cp .env.example .env
+# update .env DB settings
+php artisan key:generate
+php artisan migrate
+npm install # optional (assets)
+npm run build
+php artisan serve
+```
+
+---
+
+## <a name="usage"></a>Usage (Tab: Imports / Devices / API)
+
+### Imports (UI)
+
+Open the app in a browser, sign in as an admin/operator and go to **Imports** (or **Receiver → Import**). Use the Upload control to add an MDB file or use the server sample `att2000.mdb`. The UI runs the import job and shows progress and history.
+
+### Devices (UI)
+
+Navigate to **Devices** to add or edit ZKTeco devices (IP, port, name, credentials). Use the **Sync** action to pull logs; the UI shows last-sync and results.
+
+### API (Tab)
+
+The REST API is described by the OpenAPI spec at `/openapi.json`. Common endpoints:
+
+- `GET /api/users` — list users
+- `GET /api/attendances` — list attendance events
+- `POST /api/import/mdb` — upload and import an MDB (if API import is enabled)
+
+Authentication: include `Authorization: Bearer <TOKEN>` in requests.
+
+Example: list attendances
+
+```bash
+curl -X GET "http://localhost:8000/api/attendances" \
+	-H "Authorization: Bearer <TOKEN>" \
+	-H "Accept: application/json"
+```
+
+Example: upload an MDB
+
+```bash
+curl -X POST "http://localhost:8000/api/import/mdb" \
+	-H "Authorization: Bearer <TOKEN>" \
+	-F "file=@/path/to/att2000.mdb"
+```
+
+---
+
+## <a name="mdb-format"></a>How the MDB format works
+
+The included `att2000.mdb` sample contains typical tables used by ZKTeco exports. Key columns you will find:
+
+- `USERID` / `PIN` — unique user identifier
+- `NAME` — user full name
+- `VERIFYMODE` — verification method
+- `CHECKTIME` / `ATT_TIME` — timestamp of attendance
+- `CHECKTYPE` — in/out or event type
+
+Importer behavior:
+
+1. Open MDB and enumerate tables.
+2. Read user table to create/update local users.
+3. Read attendance/log table and insert attendance events.
+4. Post-process: dedupe, normalize timestamps (UTC or configured TZ), and index.
+
+If you must support alternate MDB schemas, add a column mapping in the importer configuration.
+
+---
+
+## <a name="zkteco-devices"></a>How ZKTeco devices work
+
+ZKTeco devices typically accept network queries on TCP port `4370`. This project supports:
+
+- Pulling users and logs via device protocol/SDK
+- Export-to-MDB workflow (vendor tools) and subsequent import
+
+Notes:
+
+- Track `last_sync` per device to avoid duplicates.
+- Implement retries and backoff for flaky networks.
+
+---
+
+## <a name="api-documentation"></a>API Documentation
+
+The OpenAPI spec is at `public/openapi.json`. To view:
+
+- Open `http://localhost:8000/openapi.json` with Swagger UI, or
+- Load `public/openapi.json` at http://editor.swagger.io/.
+
+The spec includes parameter descriptions, response schemas, and auth requirements. Use it to generate clients or a Postman collection.
+
+---
+
+## <a name="development"></a>Development notes
+
+- Modules are under `Modules/` (e.g., `Modules/Receiver`, `Modules/Authentication`).
+- Inspect `routes/` and `app/` inside each module for controllers and commands.
+- Sample MDB for local testing: `public/att2000.mdb`.
+
+---
+
+## <a name="contributing"></a>Contributing
+
+- Fork, add a feature branch, include tests, and open a PR against `release`.
+
+---
+
+## <a name="license"></a>License
+
+This project is open source and licensed under the MIT License — see the `LICENSE` file for details.
+
+
 
 ## What it does
 - Reads attendance and user records from an `att2000.mdb` sample database (Microsoft Access) and from ZKTeco devices over network.
