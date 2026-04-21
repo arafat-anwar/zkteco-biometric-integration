@@ -15,18 +15,10 @@
 > https://arafat-anwar.github.io/zkteco-biometric-integration/
 
 <!-- Tab-like quick links -->
-<p align="center">
-	<a href="docs/overview.md">Overview</a> •
-	<a href="docs/installation.md">Installation</a> •
-	<a href="docs/usage.md">Usage</a> •
-	<a href="docs/mdb-format.md">MDB Format</a> •
-	<a href="docs/zkteco-devices.md">ZKTeco</a> •
-	<a href="docs/api-documentation.md">API Docs</a> •
-	<a href="docs/development.md">Development</a> •
-	<a href="docs/contributing.md">Contributing</a> •
-	<a href="docs/troubleshooting.md">Troubleshooting</a> •
-	<a href="LICENSE">License</a>
-</p>
+
+| Overview | Installation | Usage | MDB Format | ZKTeco | API Docs | Development | Contributing | Troubleshooting | License |
+|---|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| [Overview](docs/overview.md) | [Installation](docs/installation.md) | [Usage](docs/usage.md) | [MDB Format](docs/mdb-format.md) | [ZKTeco](docs/zkteco-devices.md) | [API Docs](docs/api-documentation.md) | [Development](docs/development.md) | [Contributing](docs/contributing.md) | [Troubleshooting](docs/troubleshooting.md) | [License](LICENSE) |
 
 ---
 
