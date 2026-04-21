@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/receiver",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Receiver\\": "app/",
+            "Modules\\Receiver\\Database\\Factories\\": "database/factories/",
+            "Modules\\Receiver\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Receiver\\Tests\\": "tests/"
+        }
+    }
+}

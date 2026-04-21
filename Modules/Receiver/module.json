@@ -1,0 +1,11 @@
+{
+    "name": "Receiver",
+    "alias": "receiver",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Receiver\\Providers\\ReceiverServiceProvider"
+    ],
+    "files": []
+}

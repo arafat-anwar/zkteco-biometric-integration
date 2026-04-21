@@ -1,0 +1,8 @@
+{
+    "Authentication": true,
+    "Credentials": true,
+    "Pusher": true,
+    "Receiver": true,
+    "API": true,
+    "Docs": true
+}
