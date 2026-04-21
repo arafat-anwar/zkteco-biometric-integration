@@ -1,12 +1,8 @@
-<div align="center">
-  <h1>🖐 ZKTeco Biometric Integration</h1>
-  <p>A modular Laravel application that bridges ZKTeco biometric devices with your HR and payroll systems.<br>Import attendance from MDB files, sync live from devices, and serve everything through a documented REST API.</p>
+# ZKTeco Biometric Integration
 
-  [![Build](https://github.com/arafat-anwar/zkteco-biometric-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/arafat-anwar/zkteco-biometric-integration/actions)
-  [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
-  [![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net)
-  [![Laravel](https://img.shields.io/badge/Laravel-11.x-red.svg)](https://laravel.com)
-</div>
+Modular Laravel integration for ZKTeco biometric devices. Import attendance from Microsoft Access (`.mdb`) exports or sync directly from devices and expose data via a documented REST API.
+
+[![Build](https://github.com/arafat-anwar/zkteco-biometric-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/arafat-anwar/zkteco-biometric-integration/actions) [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net) [![Laravel](https://img.shields.io/badge/Laravel-11.x-red.svg)](https://laravel.com)
 
 ---
 
@@ -135,42 +131,91 @@ php artisan serve
 # Listening at http://localhost:8000
 ```
 
----
+## ZKTeco Biometric Integration
 
-## Usage
+Modular Laravel integration for ZKTeco biometric devices. Import attendance from Microsoft Access (`.mdb`) exports or sync directly from devices and expose the data through a documented REST API.
 
-### Web interface
+### Quick links
 
-Open `http://localhost:8000` in your browser and log in as an admin or operator.
-
-**Imports**
-Go to **Imports** (or **Receiver → Import** in the sidebar). Upload any `.mdb` file, or use the bundled sample at `public/att2000.mdb`. The import job runs asynchronously and the UI shows live progress and a full history.
-
-**Devices**
-Go to **Devices** to register a ZKTeco unit. Fill in its IP address, port, name, and password (if any). Use the **Sync** button to pull the latest attendance logs directly from the device. Each device shows its last-sync timestamp and record counts.
-
-**Records**
-Browse users and attendance events. Filter by date range, device, or individual user.
+- Overview
+- Installation
+- Usage (UI + API)
+- MDB format
+- Device sync
+- API docs
+- Development
+- Troubleshooting
 
 ---
 
-### REST API
+### How it works
 
-All API endpoints require a Bearer token:
+ZKTeco devices and their vendor software produce attendance records. This app ingests those records either by reading exported `.mdb` files or by connecting to devices over TCP (default port `4370`). Imported data is normalized and stored in your application database for use via the web UI or REST API.
 
-```http
-Authorization: Bearer YOUR_API_TOKEN
+High level flow:
+
+```
+Device (TCP:4370)  --->  App (sync)  ---> Database  ---> API / UI
+MDB file (att2000.mdb) ---> Importer ---> Database  ---> API / UI
 ```
 
-**Endpoints**
+### What it includes
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/users` | List all users |
-| `GET` | `/api/attendances` | List attendance records |
-| `POST` | `/api/import/mdb` | Upload and import an MDB file |
+- MDB import engine (sample: `public/att2000.mdb`)
+- Device sync module (connects on TCP port 4370)
+- REST API with OpenAPI spec (`public/openapi.json`)
+- Admin UI for imports, devices, and record browsing
 
-**Example — list attendance records**
+---
+
+### Prerequisites
+
+- PHP 8.1+
+- Composer
+- A database (MySQL/MariaDB/Postgres/SQLite)
+- `php_odbc` extension (required for reading `.mdb` via ODBC)
+- Node.js + npm (optional, for frontend build)
+
+Install platform ODBC drivers when using `.mdb` files (e.g. `mdbtools` + `unixodbc` on Linux or Microsoft ACE on Windows).
+
+---
+
+### Installation (short)
+
+```bash
+git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
+cd zkteco-biometric-integration
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+npm install && npm run build # optional
+php artisan serve
+```
+
+---
+
+### Usage (UI)
+
+- Go to `http://localhost:8000`
+- Use **Imports** to upload an `.mdb` file or use `public/att2000.mdb`
+- Use **Devices** to register a device and **Sync** to pull logs
+- Browse users and attendance under **Records**
+
+### Usage (API)
+
+- Open `http://localhost:8000/openapi.json` with Swagger UI or Postman
+- All endpoints require `Authorization: Bearer <TOKEN>`
+
+Common endpoints:
+
+```
+GET  /api/users
+GET  /api/attendances
+POST /api/import/mdb  (multipart file upload)
+```
+
+Example:
 
 ```bash
 curl -X GET "http://localhost:8000/api/attendances" \
@@ -178,435 +223,60 @@ curl -X GET "http://localhost:8000/api/attendances" \
   -H "Accept: application/json"
 ```
 
-**Example — upload an MDB file**
+---
 
-```bash
-curl -X POST "http://localhost:8000/api/import/mdb" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@/path/to/att2000.mdb"
-```
+### MDB format (overview)
+
+- Users: `USERID`, `PIN`, `NAME`, `VERIFYMODE`
+- Attendance: `USERID`, `CHECKTIME`, `CHECKTYPE`
+
+Importer pipeline:
+
+1. Open `.mdb` using ODBC
+2. Map tables/columns to models
+3. Insert users and attendance events
+4. Deduplicate and normalize timestamps (UTC)
 
 ---
 
-## MDB Format
+### Device sync notes
 
-ZKTeco management software (e.g. Att2000) can export attendance data into a Microsoft Access database (`.mdb`). A working sample is included at `public/att2000.mdb`.
-
-**Database tables**
-
-| Table | Key columns | Purpose |
-|---|---|---|
-| Users | `USERID`, `PIN`, `NAME`, `VERIFYMODE` | Employee records |
-| Attendance | `USERID`, `CHECKTIME`, `CHECKTYPE` | Punch-in / punch-out events |
-
-**Column reference**
-
-| Column | Description |
-|---|---|
-| `USERID` / `PIN` | Unique numeric employee identifier |
-| `NAME` | Full employee name |
-| `VERIFYMODE` | Method used: fingerprint, card, PIN, face, etc. |
-| `CHECKTIME` / `ATT_TIME` | UTC-normalized event timestamp |
-| `CHECKTYPE` | Event type: check-in, check-out, overtime, etc. |
-
-**Importer pipeline**
-
-```
-1. Open .mdb via ODBC connection
-2. Enumerate tables and detect schema
-3. Read users → create or update local employee records
-4. Read attendance → insert punch events
-5. Deduplicate, normalize timestamps to UTC, and index
-```
-
-> If your MDB uses different column names, configure a column mapping in the importer settings.
+- Devices commonly listen on TCP port `4370`
+- The app tracks `last_sync` per device to fetch only new records
+- Retries and backoff handle flaky networks
 
 ---
 
-## ZKTeco Devices
+### API docs
 
-ZKTeco biometric terminals (fingerprint readers, face recognition units, access control panels) expose a TCP-based protocol on port **4370** for programmatic data access.
-
-**Supported workflows**
-
-| Workflow | Description |
-|---|---|
-| Direct device sync | The app connects to the device IP on port 4370 and pulls users and logs |
-| MDB file import | Export from ZKTeco software, then upload the `.mdb` via UI or API |
-
-**Adding a device**
-
-1. Go to **Devices → New Device**
-2. Enter: name, IP address, port (default `4370`), and device password (if configured)
-3. Click **Test Connection** to verify reachability
-4. Click **Sync** to start importing logs
-
-**How sync works under the hood**
-
-- The app records `last_sync` per device to fetch only new records on each run
-- Failed connections are retried with exponential backoff
-- Device credentials are stored encrypted in the database
-- To allow external connections, check the device admin panel under **Comm → IP & DNS Settings**
+View the OpenAPI spec at `public/openapi.json` or import it into Postman / Swagger Editor.
 
 ---
 
-## API Documentation
+### Development
 
-The full API is described by an **OpenAPI 3.0** specification at `public/openapi.json`.
-
-**View with Swagger UI**
-
-```bash
-php artisan serve
-# Then open your Swagger UI and load:
-# http://localhost:8000/openapi.json
-```
-
-**View online**
-
-1. Go to [editor.swagger.io](https://editor.swagger.io/)
-2. Click **File → Import URL**
-3. Paste `http://localhost:8000/openapi.json`
-
-**Import into Postman**
-
-1. In Postman, click **Import → Link**
-2. Paste `http://localhost:8000/openapi.json`
-3. Postman generates a full collection with all endpoints
-
-**What the spec covers**
-
-- All endpoints with request parameters and body schemas
-- Response formats and HTTP status codes
-- Bearer token authentication requirements
-- Example payloads for requests and responses
-
-**Generate a typed client**
-
-```bash
-# Example: PHP client using OpenAPI Generator
-openapi-generator-cli generate \
-  -i http://localhost:8000/openapi.json \
-  -g php \
-  -o ./generated/php-client
-```
-
-> Token management is handled by `Modules/Authentication`. Check that module for registration, login, and token refresh routes.
+- Modules under `Modules/` (Receiver, API, Authentication, Credentials, Pusher)
+- Sample MDB: `public/att2000.mdb`
+- Tests: `php artisan test`
 
 ---
 
-## Development
+### Troubleshooting (common)
 
-**Project layout**
-
-```
-zkteco-biometric-integration/
-├── Modules/
-│   ├── API/             # REST controllers and routes
-│   ├── Authentication/  # Auth guards and token management
-│   ├── Credentials/     # Device credential handling
-│   ├── Receiver/        # MDB importer and device sync
-│   └── Pusher/          # Real-time broadcasting
-├── public/
-│   ├── att2000.mdb      # Sample MDB for local testing
-│   └── openapi.json     # API specification
-├── docs/                # Source documentation files
-└── database/
-    └── migrations/      # Schema definitions
-```
-
-**Common commands**
-
-```bash
-php artisan test                  # Run all tests
-php artisan test --coverage       # Tests with coverage report
-php artisan module:list           # List registered modules
-php artisan route:list            # Show all routes
-php artisan queue:work            # Process background import jobs
-php artisan module:make NewModule # Scaffold a new module
-```
+- If MDB import fails, ensure `php_odbc` is enabled and platform ODBC drivers are installed.
+- Check network/firewall for device port `4370`.
+- Verify file permissions for `.mdb` files.
 
 ---
 
-## Troubleshooting
+### Contributing
 
-### MDB import fails
-
-Make sure the `php_odbc` extension is enabled and your platform has an ODBC driver for Access files.
-
-**Ubuntu / Debian**
-
-```bash
-sudo apt update
-sudo apt install php-odbc unixodbc mdbtools
-# For a specific PHP version, e.g. 8.1:
-sudo apt install php8.1-odbc
-sudo systemctl restart apache2   # or php8.1-fpm
-```
-
-**RHEL / CentOS / Fedora**
-
-```bash
-sudo dnf install php-odbc unixODBC mdbtools
-sudo systemctl restart httpd
-```
-
-**Windows**
-
-1. Download and install the [Microsoft Access Database Engine Redistributable](https://www.microsoft.com/en-us/download/details.aspx?id=54920)
-2. In `php.ini`, enable the extension:
-   ```ini
-   extension=odbc
-   ```
-3. Restart IIS, Apache, or PHP-FPM
-
-**Verify ODBC is active**
-
-```bash
-php -m | grep odbc
-```
+Fork → feature branch → tests → PR against `release`.
 
 ---
 
-### Device connection fails
+License: MIT — see `LICENSE`.
 
-- Double-check the device IP address and port in the **Devices** panel
-- Confirm TCP port `4370` is not blocked by a firewall on the server or the device's network
-- On the device itself, verify **Comm → IP** is set and external connections are allowed
-
----
-
-### Common error reference
-
-| Error | Cause | Fix |
-|---|---|---|
-| `SQLSTATE[IM002]` | ODBC driver missing | Install platform ODBC driver and enable `php_odbc` |
-| Permission denied on `.mdb` | Web server lacks read access | Grant read permission on the MDB file to the PHP process user |
-| File format not recognized | Unsupported or corrupt MDB | Convert to a newer format, or inspect with `mdbtools` |
-| Timestamps off by hours | Timezone mismatch | Set `date.timezone` in `php.ini` and verify importer TZ config |
-| Duplicate records after sync | `last_sync` not persisted | Check device sync state tracking in `Modules/Receiver` |
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a branch: `git checkout -b feature/your-feature`
-3. Write tests for any new logic
-4. Commit: `git commit -m "feat: describe what you did"`
-5. Push: `git push origin feature/your-feature`
-6. Open a Pull Request against the `release` branch
-
-Please make sure `php artisan test` passes before submitting.
-
----
-
-<div align="center">
-  <sub>MIT License · Built with <a href="https://laravel.com">Laravel</a> and <a href="https://nwidart.com/laravel-modules">nWidart Modules</a></sub>
-</div>
-<div align="center">
-
-# ZKTeco Biometric Integration
-
-**Modular Laravel integration for ZKTeco biometric devices — MDB import, live device sync, and a fully documented REST API.**
-
-[![Build](https://github.com/arafat-anwar/zkteco-biometric-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/arafat-anwar/zkteco-biometric-integration/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
-[![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue.svg)](https://php.net)
-[![Laravel](https://img.shields.io/badge/Laravel-11.x-red.svg)](https://laravel.com)
-
-</div>
-
----
-
-> **Navigate the docs below** — click any section to expand it. All documentation from [`docs/`](docs/) is embedded here for quick reading.
-
-<br>
-
----
-
-<details open>
-<summary><h2>📌 Overview</h2></summary>
-
-ZKTeco Biometric Integration is a **modular Laravel application** that acts as a bridge between ZKTeco biometric hardware and your HR or payroll system. It ingests attendance data from two sources:
-
-1. **MDB files** — Microsoft Access databases exported by ZKTeco's own software (e.g. `att2000.mdb`)
-2. **Live devices** — Direct TCP connection to ZKTeco hardware on port `4370`
-
-Once imported, all records are normalized and served through a clean **REST API** documented with OpenAPI/Swagger.
-
-### What the system does
-
-```
-ZKTeco Device ──── TCP:4370 ────┐
-                                 ├──► Laravel App ──► REST API ──► HR / Payroll
-ZKTeco Software ── .mdb file ───┘         │
-                                          └──► Web UI (import, sync, view)
-```
-
-### Highlights
-
-| Capability | Details |
-|---|---|
-| 📂 MDB Import | Read `att2000.mdb` or any compatible ZKTeco export |
-| 🔌 Device Sync | Poll devices live over TCP port `4370` |
-| 🌐 REST API | OpenAPI spec at `public/openapi.json` |
-| 🧩 Modular | Feature modules under `Modules/` (Receiver, API, Auth…) |
-| 🖥️ Web UI | Admin panel to manage devices, imports, and records |
-
-</details>
-
----
-
-<details>
-<summary><h2>⚙️ Prerequisites</h2></summary>
-
-Make sure the following are available before installation:
-
-### Runtime
-
-| Requirement | Version | Notes |
-|---|---|---|
-| PHP | 8.1+ | Check `php -v` |
-| Composer | 2.x | Check `composer -V` |
-| Database | MySQL / MariaDB / PostgreSQL / SQLite | Configured in `.env` |
-| Node.js + npm | 18+ | For asset building only (optional) |
-
-### PHP Extensions
-
-| Extension | Required | Purpose |
-|---|---|---|
-| `php_odbc` | ✅ Yes | Reading `.mdb` (Access) files |
-| `pdo` | ✅ Yes | Database queries |
-| `mbstring` | ✅ Yes | String handling |
-| `openssl` | ✅ Yes | Encryption |
-
-### Network
-
-- ZKTeco device accessible on the server's network
-- TCP port **4370** open to the device (if using live sync)
-
-### ODBC Drivers (for MDB support)
-
-| Platform | Requirement |
-|---|---|
-| **Linux** | `unixodbc`, `mdbtools` (`apt` or `dnf`) |
-| **Windows** | Microsoft Access Database Engine (ACE) Redistributable |
-| **macOS** | `unixodbc` via Homebrew |
-
-</details>
-
----
-
-<details>
-<summary><h2>🚀 Installation</h2></summary>
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
-cd zkteco-biometric-integration
-```
-
-### 2. Install PHP dependencies
-
-```bash
-composer install
-```
-
-### 3. Configure the environment
-
-```bash
-cp .env.example .env
-php artisan key:generate
-```
-
-Edit `.env` with your database credentials and any other required settings:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=zkteco
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
-### 4. Run migrations
-
-```bash
-php artisan migrate
-```
-
-### 5. Build frontend assets *(optional)*
-
-```bash
-npm install
-npm run build
-```
-
-### 6. Start the server
-
-```bash
-php artisan serve
-# App available at http://localhost:8000
-```
-
-</details>
-
----
-
-<details>
-<summary><h2>📖 Usage</h2></summary>
-
-### Web Interface
-
-Once the app is running, log in at `http://localhost:8000` as an admin or operator.
-
-#### Imports tab
-
-1. Go to **Imports** (or **Receiver → Import** in the sidebar)
-2. Upload an `.mdb` file — or use the bundled sample at `public/att2000.mdb`
-3. The import job runs in the background; progress and history are shown in the UI
-
-#### Devices tab
-
-1. Go to **Devices**
-2. Add a ZKTeco device with its IP, port, name, and credentials
-3. Hit **Sync** to pull the latest attendance logs from the device
-4. View last-sync status and result counts per device
-
-#### Records tab
-
-Browse imported users and attendance events. Filter by date, device, or user.
-
----
-
-### API
-
-The REST API is documented via the OpenAPI spec at `/openapi.json`.
-
-#### Authentication
-
-All API requests require a Bearer token in the `Authorization` header:
-
-```http
-Authorization: Bearer YOUR_API_TOKEN
-```
-
-#### Common endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/users` | List all users |
-| `GET` | `/api/attendances` | List attendance records |
-| `POST` | `/api/import/mdb` | Upload and import an MDB file |
-
-#### Examples
-
-**List attendances:**
-```bash
-curl -X GET "http://localhost:8000/api/attendances" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Accept: application/json"
 ```
@@ -847,291 +517,7 @@ php -r "var_dump(extension_loaded('odbc'));"
 | Permission denied on `.mdb` | File permissions | Give web server read access to the MDB file |
 | File format not recognized | Unsupported MDB version | Convert MDB to a newer format or use `mdbtools` to inspect |
 | Timestamps off by hours | Timezone mismatch | Set `date.timezone` in `php.ini`; verify importer TZ config |
-| Duplicate attendance records | `last_sync` not tracked | Enable deduplication; check device sync logic |
-
----
-
-### Useful resources
-
-- [Microsoft Access Database Engine (Windows)](https://www.microsoft.com/en-us/download/details.aspx?id=54920)
-- [mdbtools — Linux MDB reader](https://github.com/mdbtools/mdbtools)
-- [unixODBC](http://www.unixodbc.org/)
-
-</details>
-
----
-
-<details>
-<summary><h2>🤝 Contributing</h2></summary>
-
-Contributions are welcome! Here's how:
-
-1. **Fork** the repository
-2. **Create a branch**: `git checkout -b feature/your-feature`
-3. **Write tests** for any new logic
-4. **Commit**: `git commit -m "feat: add your feature"`
-5. **Push**: `git push origin feature/your-feature`
-6. **Open a Pull Request** against the `release` branch
-
-Please follow existing code style and ensure `php artisan test` passes before submitting.
-
-</details>
-
----
-
-<div align="center">
-
-**MIT License** — see [LICENSE](LICENSE) for details.
-
-Made with ❤️ using [Laravel](https://laravel.com) and the [nWidart Modules](https://nwidart.com/laravel-modules) package.
-
-</div>
-# ZKTeco Biometric Integration
-
-A modular Laravel application for integrating with ZKTeco biometric devices. Extracts attendance and user data from Microsoft Access (MDB) files and directly from devices, providing a clean REST API for HR/payroll systems.
-
-## 🚀 Features
-
-- **MDB Import**: Parse and import attendance data from ZKTeco export files (`.mdb`)
-- **Device Sync**: Poll ZKTeco devices over network (TCP port 4370) for live data
-- **REST API**: OpenAPI/Swagger documented endpoints for users and attendances
-- **Modular Architecture**: Laravel modules under `Modules/` for easy extension
-- **Web UI**: Admin interface for managing imports, devices, and viewing data
-
-## 📋 Requirements
-
-- PHP 8.1+
-- Composer
-- Database (MySQL/MariaDB/PostgreSQL/SQLite)
-- PHP ODBC extension (`php_odbc`) for MDB reading
-- Node.js & npm (for asset building, optional)
-
-## 🛠 Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/arafat-anwar/zkteco-biometric-integration.git
-   cd zkteco-biometric-integration
-   ```
-
-2. **Install dependencies**
-   ```bash
-   composer install
-   npm install  # optional, for assets
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database and other settings
-   php artisan key:generate
-   ```
-
-4. **Setup database**
-   ```bash
-   php artisan migrate
-   php artisan db:seed  # if seeders exist
-   ```
-
-5. **Build assets (optional)**
-   ```bash
-   npm run build
-   ```
-
-6. **Start the application**
-   ```bash
-   php artisan serve
-   ```
-
-## 📖 Usage
-
-### Web Interface
-
-- **Login**: Access the admin panel at `http://localhost:8000`
-- **Imports**: Upload MDB files or use the sample `public/att2000.mdb`
-- **Devices**: Configure ZKTeco devices (IP, port) and sync attendance data
-- **Users/Attendance**: View imported data and manage records
-
-### API Usage
-
-The API is documented via OpenAPI spec at `public/openapi.json`.
-
-**Authentication**: Bearer token required.
-
-**Example endpoints**:
-- `GET /api/users` - List users
-- `GET /api/attendances` - List attendance records
-- `POST /api/import/mdb` - Upload and import MDB file
-
-**Curl example**:
-```bash
-curl -X GET "http://localhost:8000/api/attendances" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Accept: application/json"
-```
-
-## 📁 MDB Format
-
-ZKTeco devices export data to Microsoft Access databases (`.mdb`). The importer reads tables like:
-
-- **Users table**: `USERID`, `NAME`, `PIN`
-- **Attendance table**: `USERID`, `CHECKTIME`, `CHECKTYPE`
-
-**Importer workflow**:
-1. Connect to MDB using ODBC
-2. Extract user and attendance records
-3. Normalize timestamps and deduplicate
-4. Store in application database
-
-## 🔌 ZKTeco Devices
-
-Devices communicate over TCP (typically port 4370). The app supports:
-
-- **Direct polling**: Connect to device IP and pull user/attendance logs
-- **Incremental sync**: Track `last_sync` to avoid duplicates
-- **Network reliability**: Retries and backoff for flaky connections
-
-## 📚 API Documentation
-
-Full API spec available at:
-- Local: `http://localhost:8000/openapi.json`
-- Online: Load into [Swagger Editor](https://editor.swagger.io/)
-
-Includes schemas for all endpoints, parameters, and responses.
-
-## 🏗 Development
-
-- **Modules**: Code organized under `Modules/` (API, Authentication, Receiver, etc.)
-- **Sample data**: `public/att2000.mdb` for testing
-- **Testing**: Run `php artisan test`
-- **Linting**: Use PHP CS Fixer or similar
-
-## 🐛 Troubleshooting
-
-### MDB Import Issues
-
-Ensure `php_odbc` extension is enabled:
-
-**Linux (Ubuntu/Debian)**:
-```bash
-sudo apt install php-odbc unixodbc mdbtools
-sudo systemctl restart apache2
-```
-
-**Windows**:
-1. Install [Microsoft Access Database Engine](https://www.microsoft.com/en-us/download/details.aspx?id=54920)
-2. Enable `extension=php_odbc.dll` in `php.ini`
-3. Restart web server
-
-**Verify**:
-```bash
-php -m | grep odbc
-```
-
-### Device Connection
-
-- Check network connectivity to device IP/port
-- Ensure device allows remote queries
-- Verify credentials if authentication required
-
-### Common Errors
-
-- `ODBC driver not found`: Install platform ODBC drivers
-- `Permission denied`: Check file permissions for MDB files
-- `Duplicate records`: Enable deduplication in importer config
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.��#   Z K T e c o   B i o m e t r i c   I n t e g r a t i o n 
- 
- 
- 
- < p   a l i g n = " c e n t e r " > 
- 
- 	 	 < s t r o n g > M o d u l a r   L a r a v e l   i n t e g r a t i o n   f o r   Z K T e c o   d e v i c e s   �� �   M D B   i m p o r t ,   d e v i c e   s y n c ,   a n d   R E S T   A P I . < / s t r o n g > 
- 
- < / p > 
- 
- 
- 
- < p   a l i g n = " c e n t e r " > 
- 
- 	 < i m g   s r c = " h t t p s : / / g i t h u b . c o m / a r a f a t - a n w a r / z k t e c o - b i o m e t r i c - i n t e g r a t i o n / a c t i o n s / w o r k f l o w s / c i . y m l / b a d g e . s v g "   a l t = " b u i l d "   / > 
- 
- 	 < i m g   s r c = " h t t p s : / / c o d e c o v . i o / g h / a r a f a t - a n w a r / z k t e c o - b i o m e t r i c - i n t e g r a t i o n / b r a n c h / r e l e a s e / g r a p h / b a d g e . s v g "   a l t = " c o v e r a g e "   / > 
- 
- 	 < i m g   s r c = " h t t p s : / / i m g . s h i e l d s . i o / b a d g e / l i c e n s e - M I T - g r e e n . s v g "   a l t = " l i c e n s e "   / > 
- 
- < / p > 
- 
- 
- 
- >   D o c u m e n t a t i o n   s p l i t   a c r o s s   ` d o c s / `   �� �   b r o w s e   i n - r e p o   o r   v i e w   t h e   p u b l i s h e d   s i t e : 
- 
- > 
- 
- >   h t t p s : / / a r a f a t - a n w a r . g i t h u b . i o / z k t e c o - b i o m e t r i c - i n t e g r a t i o n / 
- 
- 
- 
- < ! - -   T a b - l i k e   q u i c k   l i n k s   - - > 
- 
- 
- 
- |   O v e r v i e w   |   I n s t a l l a t i o n   |   U s a g e   |   M D B   F o r m a t   |   Z K T e c o   |   A P I   D o c s   |   D e v e l o p m e n t   |   C o n t r i b u t i n g   |   T r o u b l e s h o o t i n g   |   L i c e n s e   | 
- 
- | - - - | - - - : | : - - - : | : - - - : | : - - - : | : - - - : | : - - - : | : - - - : | : - - - : | : - - - : | 
- 
- |   [ O v e r v i e w ] ( d o c s / o v e r v i e w . m d )   |   [ I n s t a l l a t i o n ] ( d o c s / i n s t a l l a t i o n . m d )   |   [ U s a g e ] ( d o c s / u s a g e . m d )   |   [ M D B   F o r m a t ] ( d o c s / m d b - f o r m a t . m d )   |   [ Z K T e c o ] ( d o c s / z k t e c o - d e v i c e s . m d )   |   [ A P I   D o c s ] ( d o c s / a p i - d o c u m e n t a t i o n . m d )   |   [ D e v e l o p m e n t ] ( d o c s / d e v e l o p m e n t . m d )   |   [ C o n t r i b u t i n g ] ( d o c s / c o n t r i b u t i n g . m d )   |   [ T r o u b l e s h o o t i n g ] ( d o c s / t r o u b l e s h o o t i n g . m d )   |   [ L i c e n s e ] ( L I C E N S E )   | 
- 
- 
- 
- - - - 
- 
- 
- 
- # #   F u l l   d o c s   ( e m b e d d e d   t a b s ) 
- 
- 
- 
- B e l o w   a r e   t h e   f u l l   d o c u m e n t a t i o n   p a g e s   e m b e d d e d   i n l i n e .   C l i c k   a   s e c t i o n   t o   e x p a n d   i t   �� �   t h i s   l e t s   y o u   r e a d   e v e r y t h i n g   f r o m   o n e   f i l e   w h i l e   k e e p i n g   e a c h   t o p i c   c o l l a p s i b l e   l i k e   a   t a b . 
- 
- 
- 
- < s m a l l > T i p :   u s e   y o u r   e d i t o r ' s   f i n d   ( C t r l / C m d + F )   t o   j u m p   b e t w e e n   h e a d i n g s ,   o r   e x p a n d   t h e   s e c t i o n   y o u   w a n t   t o   r e a d . < / s m a l l > 
- 
- 
- 
- < d e t a i l s > 
- 
- < s u m m a r y > < s t r o n g > a"�� �   O v e r v i e w < / s t r o n g > < / s u m m a r y > 
- 
- 
- 
- A n   i n t e g r a t i o n   l a y e r   f o r   Z K T e c o   b i o m e t r i c   d e v i c e s   t h a t   e x t r a c t s   a t t e n d a n c e   a n d   u s e r   d a t a   f r o m   M i c r o s o f t   A c c e s s   ( M D B )   f i l e s   a n d   d i r e c t l y   f r o m   Z K T e c o   d e v i c e s ,   a n d   e x p o s e s   a   c l e a n   R E S T   A P I   f o r   H R / p a y r o l l   s y s t e m s . 
- 
- 
- 
- # # #   H i g h l i g h t s 
- 
- 
- 
- -   �� �   M D B   i m p o r t   ( s a m p l e :   ` p u b l i c / a t t 2 0 0 0 . m d b ` ) 
- 
- -   �� �   D e v i c e   p o l l i n g   &   s y n c   ( c o m m o n   p o r t   ` 4 3 7 0 ` ) 
- 
- -   �� �   O p e n A P I   /   S w a g g e r   s p e c   a t   ` p u b l i c / o p e n a p i . j s o n ` 
- 
- -   �� �   M o d u l a r   L a r a v e l   s t r u c t u r e   u n d e r   ` M o d u l e s / ` 
- 
+*** End Patch
  
  
  < / d e t a i l s > 
