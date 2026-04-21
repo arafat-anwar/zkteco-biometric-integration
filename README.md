@@ -137,5 +137,5 @@ Include authentication (API tokens) where required by the project. Check `Module
 - Fork the repo, create a feature branch, add tests, and open a Pull Request against the `release` branch.
 
 ## License
-Specify your project's license here (e.g., MIT).
+This project is open source and licensed under the MIT License — see the `LICENSE` file for details.
 
