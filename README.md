@@ -55,15 +55,27 @@ An integration layer for ZKTeco biometric devices that extracts attendance and u
 
 ## Usage
 
-- Import an MDB file (example artisan command - adjust to your implementation):
+- Import via web UI: No CLI commands are required for normal imports. Open the application in a browser, sign in with an admin or operator account, and navigate to the "Imports" or "Receiver" → "Import" page. Use the UI to upload an MDB file (for example `att2000.mdb`) or pick the sample file from the server. The UI validates the file, starts the import job, and shows progress and results in the import history view.
 
-  php artisan zkteco:import --file=public/att2000.mdb
+- Device management via web UI: Manage ZKTeco devices from the "Devices" page — add device IP, port (commonly `4370`), name, and credentials. Use the sync/poll action in the UI to trigger a device pull; the UI shows fetch progress and any import results. The system tracks last-sync timestamps to avoid duplicate reads.
 
-- Poll a ZKTeco device (example):
+- API: The app exposes a REST API described by the OpenAPI spec at `public/openapi.json` and served at `/openapi.json` when the app runs. You can view the spec with a Swagger UI, load it into http://editor.swagger.io/, or point any OpenAPI-compatible client at the URL.
 
-  php artisan zkteco:poll --host=192.168.1.100 --port=4370
+	- Authentication: API endpoints require authentication (API tokens or other configured auth). Include an authorization header, for example `Authorization: Bearer <TOKEN>`.
 
-- API: Once the app is running, the REST endpoints described in `public/openapi.json` are available (default host `http://localhost:8000`). Use Swagger UI or tools like `curl` / Postman to explore.
+	- Example: list attendances with curl
+
+		curl -X GET "http://localhost:8000/api/attendances" \
+			-H "Authorization: Bearer <TOKEN>" \
+			-H "Accept: application/json"
+
+	- Example: upload an MDB via API (if enabled)
+
+		curl -X POST "http://localhost:8000/api/import/mdb" \
+			-H "Authorization: Bearer <TOKEN>" \
+			-F "file=@/path/to/att2000.mdb"
+
+	- Query parameters: endpoints may support filters such as `since`, `until`, `user_id`, and pagination parameters. Consult the OpenAPI spec for full parameter lists and response schemas.
 
 ## How the MDB format works
 
