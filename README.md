@@ -1,20 +1,31 @@
 # ZKTeco Biometric Integration
 
 <p align="center">
-	<strong>Modular Laravel integration for ZKTeco devices — MDB import, device sync, and REST API.</strong>
+		<strong>Modular Laravel integration for ZKTeco devices — MDB import, device sync, and REST API.</strong>
 </p>
+
+<p align="center">
+	<img src="https://github.com/arafat-anwar/zkteco-biometric-integration/actions/workflows/ci.yml/badge.svg" alt="build" />
+	<img src="https://codecov.io/gh/arafat-anwar/zkteco-biometric-integration/branch/release/graph/badge.svg" alt="coverage" />
+	<img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license" />
+</p>
+
+> Documentation split across `docs/` — browse in-repo or view the published site:
+>
+> https://arafat-anwar.github.io/zkteco-biometric-integration/
 
 <!-- Tab-like quick links -->
 <p align="center">
-	<a href="#overview">Overview</a> •
-	<a href="#installation">Installation</a> •
-	<a href="#usage">Usage</a> •
-	<a href="#mdb-format">MDB Format</a> •
-	<a href="#zkteco-devices">ZKTeco</a> •
-	<a href="#api-documentation">API Docs</a> •
-	<a href="#development">Development</a> •
-	<a href="#contributing">Contributing</a> •
-	<a href="#license">License</a>
+	<a href="docs/overview.md">Overview</a> •
+	<a href="docs/installation.md">Installation</a> •
+	<a href="docs/usage.md">Usage</a> •
+	<a href="docs/mdb-format.md">MDB Format</a> •
+	<a href="docs/zkteco-devices.md">ZKTeco</a> •
+	<a href="docs/api-documentation.md">API Docs</a> •
+	<a href="docs/development.md">Development</a> •
+	<a href="docs/contributing.md">Contributing</a> •
+	<a href="docs/troubleshooting.md">Troubleshooting</a> •
+	<a href="LICENSE">License</a>
 </p>
 
 ---
