@@ -328,7 +328,8 @@ class ImportMdbCommand extends Command
         $duplicates = 0;
         $errors     = 0;
 
-        $deviceForLog = null;
+        // Default to the first active device for logging if no specific device is matched
+        $deviceForLog = Device::where('organization_id', $organization->id)->first();
 
         DB::beginTransaction();
         try {
@@ -371,17 +372,21 @@ class ImportMdbCommand extends Command
                 }
             }
 
-            // Log the push operation
-            PushLog::create([
-                'organization_id'    => $organization->id,
-                'device_id'          => $deviceForLog?->id,
-                'records_pushed'     => count($rows),
-                'records_saved'      => $saved,
-                'duplicates_skipped' => $duplicates,
-                'status'             => 'success',
-                'message'            => 'Imported from MDB file',
-                'pusher_ip'          => '127.0.0.1',
-            ]);
+            // Log the push operation if we have a device to link it to
+            if ($deviceForLog) {
+                PushLog::create([
+                    'organization_id'    => $organization->id,
+                    'device_id'          => $deviceForLog->id,
+                    'records_pushed'     => count($rows),
+                    'records_saved'      => $saved,
+                    'duplicates_skipped' => $duplicates,
+                    'status'             => 'success',
+                    'message'            => 'Imported from MDB file',
+                    'pusher_ip'          => '127.0.0.1',
+                ]);
+            } else {
+                $this->warn("Skipped creating PushLog: No device found for organization.");
+            }
 
             DB::commit();
         } catch (\Throwable $e) {
